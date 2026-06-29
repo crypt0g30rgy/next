@@ -18,7 +18,7 @@ python3 next.py <file_path_to_your_buildManifest.js>
 # For local file
 go run next.go <file_path_to_your_buildManifest.js>
 
-# For URL (downloads HTML and extracts build manifest)
+# For URL (downloads HTML, extracts build manifest, and extracts JS paths)
 go run next.go -u <url_to_your_nextjs_app>
 ```
 
@@ -28,7 +28,8 @@ go run next.go -u <url_to_your_nextjs_app>
 - Uses regex pattern matching to find static JS files
 - Handles file reading errors gracefully
 - Command-line interface for easy usage
-- Supports both local files and remote URLs (downloads HTML content)
+- Supports both local files and remote URLs
+- When using URL mode, automatically downloads HTML, extracts build manifest URL, and processes the manifest
 
 ## Example Output
 ```

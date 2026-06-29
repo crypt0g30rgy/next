@@ -41,10 +41,10 @@ func main() {
 	var content string
 
 	if isURL {
-		// Download content from URL
-		content, err = downloadContent(filePath)
+		// Download content from URL and extract build manifest
+		content, err = downloadAndExtractManifest(filePath)
 		if err != nil {
-			fmt.Printf("Error: Failed to download content from URL '%s'.\n", filePath)
+			fmt.Printf("Error: Failed to process URL '%s'.\n", filePath)
 			fmt.Println(err)
 			os.Exit(1)
 		}
@@ -67,8 +67,8 @@ func main() {
 	}
 }
 
-func downloadContent(url string) (string, error) {
-	// Create HTTP request
+func downloadAndExtractManifest(url string) (string, error) {
+	// Create HTTP request to get HTML content
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", err
@@ -80,12 +80,91 @@ func downloadContent(url string) (string, error) {
 		return "", fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
 	}
 
-	// Read the response body
-	body, err := io.ReadAll(resp.Body)
+	// Read the HTML response body
+	htmlBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	// Convert to string and return
-	return string(body), nil
+	// Convert to string for regex processing
+	htmlContent := string(htmlBody)
+
+	// Extract build manifest URL from HTML using regex
+	// Look for patterns like: <script src="/_next/static/.../build-manifest.json" />
+	buildManifestPattern := `<script[^>]*src=["']([^"']*build-manifest\.json[^"']*)["'][^>]*>`
+	buildManifestRe, err := regexp.Compile(buildManifestPattern)
+	if err != nil {
+		return "", fmt.Errorf("failed to compile build manifest regex: %v", err)
+	}
+
+	buildManifestMatches := buildManifestRe.FindAllStringSubmatch(htmlContent, -1)
+
+	var buildManifestURL string
+
+	if len(buildManifestMatches) > 0 {
+		// Use the first match
+		buildManifestURL = buildManifestMatches[0][1]
+	} else {
+		// Try alternative pattern: look for script tags with build-manifest in the content
+		alternativePattern := `<script[^>]*>([^<]*build-manifest\.json[^<]*)</script>`
+		altRe, err := regexp.Compile(alternativePattern)
+		if err != nil {
+			return "", fmt.Errorf("failed to compile alternative regex: %v", err)
+		}
+
+		altMatches := altRe.FindAllStringSubmatch(htmlContent, -1)
+		if len(altMatches) > 0 {
+			// Extract the URL from the content
+			for _, match := range altMatches {
+				urlMatch := regexp.MustCompile(`["']([^"']*build-manifest\.json[^"']*)["']`)
+				urlSubmatches := urlMatch.FindAllStringSubmatch(match[1], -1)
+				if len(urlSubmatches) > 0 {
+					buildManifestURL = urlSubmatches[0][1]
+					break
+				}
+			}
+		}
+	}
+
+	// If we found a build manifest URL, download it
+	if buildManifestURL != "" {
+		// Handle relative URLs by prepending the base URL
+		if !strings.HasPrefix(buildManifestURL, "http") {
+			baseURL := extractBaseURL(url)
+			buildManifestURL = baseURL + buildManifestURL
+		}
+
+		// Download build manifest content
+		manifestResp, err := http.Get(buildManifestURL)
+		if err != nil {
+			return "", fmt.Errorf("failed to download build manifest: %v", err)
+		}
+		defer manifestResp.Body.Close()
+
+		if manifestResp.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("HTTP error downloading manifest: %d %s", manifestResp.StatusCode, manifestResp.Status)
+		}
+
+		// Read the manifest content
+		manifestBody, err := io.ReadAll(manifestResp.Body)
+		if err != nil {
+			return "", fmt.Errorf("failed to read build manifest body: %v", err)
+		}
+
+		return string(manifestBody), nil
+	} else {
+		// If no build manifest found, return the original HTML content
+		// This allows users to extract JS paths from HTML directly if needed
+		fmt.Println("Warning: No build manifest URL found in HTML. Returning HTML content for JS path extraction.")
+		return htmlContent, nil
+	}
+}
+
+func extractBaseURL(url string) string {
+	// Extract base URL (protocol + host + port)
+	parts := strings.Split(url, "/")
+	if len(parts) >= 3 {
+		return parts[0] + "//" + parts[2]
+	}
+	return url
 }
