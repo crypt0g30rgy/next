@@ -11,6 +11,7 @@ This project now includes a Go version of the tool for improved performance and 
 #### Python Version
 ```bash
 python3 next.py <file_path_to_your_buildManifest.js>
+python3 next.py -u <url_to_your_nextjs_app>
 ```
 
 #### Go Version
