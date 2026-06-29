@@ -68,30 +68,33 @@ func main() {
 }
 
 func downloadAndExtractManifest(url string) (string, error) {
+	fmt.Printf("Fetching HTML from URL: %s\n", url)
+
 	// Create HTTP request to get HTML content
 	resp, err := http.Get(url)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to fetch HTML: %v", err)
 	}
 	defer resp.Body.Close()
 
 	// Check response status
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("HTTP error: %d %s", resp.StatusCode, resp.Status)
+		return "", fmt.Errorf("HTTP error fetching HTML: %d %s", resp.StatusCode, resp.Status)
 	}
 
 	// Read the HTML response body
 	htmlBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to read HTML body: %v", err)
 	}
 
 	// Convert to string for regex processing
 	htmlContent := string(htmlBody)
+	fmt.Printf("HTML fetched successfully, size: %d bytes\n", len(htmlContent))
 
 	// Extract build manifest URL from HTML using regex
-	// Look for patterns like: <script src="/_next/static/.../build-manifest.json" />
-	buildManifestPattern := `<script[^>]*src=["']([^"']*build-manifest\.json[^"']*)["'][^>]*>`
+	// Look for patterns like: <script src="/_next/static/.../buildManifest.js" />
+	buildManifestPattern := `<script[^>]*src=["']([^"']*buildManifest\.js[^"']*)["'][^>]*>`
 	buildManifestRe, err := regexp.Compile(buildManifestPattern)
 	if err != nil {
 		return "", fmt.Errorf("failed to compile build manifest regex: %v", err)
@@ -104,8 +107,10 @@ func downloadAndExtractManifest(url string) (string, error) {
 	if len(buildManifestMatches) > 0 {
 		// Use the first match
 		buildManifestURL = buildManifestMatches[0][1]
+		fmt.Printf("Found build manifest URL: %s\n", buildManifestURL)
 	} else {
 		// Try alternative pattern: look for script tags with build-manifest in the content
+		fmt.Println("No build manifest found with primary pattern, trying alternative...")
 		alternativePattern := `<script[^>]*>([^<]*build-manifest\.json[^<]*)</script>`
 		altRe, err := regexp.Compile(alternativePattern)
 		if err != nil {
@@ -120,6 +125,7 @@ func downloadAndExtractManifest(url string) (string, error) {
 				urlSubmatches := urlMatch.FindAllStringSubmatch(match[1], -1)
 				if len(urlSubmatches) > 0 {
 					buildManifestURL = urlSubmatches[0][1]
+					fmt.Printf("Found build manifest URL from alternative pattern: %s\n", buildManifestURL)
 					break
 				}
 			}
@@ -132,7 +138,10 @@ func downloadAndExtractManifest(url string) (string, error) {
 		if !strings.HasPrefix(buildManifestURL, "http") {
 			baseURL := extractBaseURL(url)
 			buildManifestURL = baseURL + buildManifestURL
+			fmt.Printf("Resolved absolute URL: %s\n", buildManifestURL)
 		}
+
+		fmt.Printf("Fetching build manifest from: %s\n", buildManifestURL)
 
 		// Download build manifest content
 		manifestResp, err := http.Get(buildManifestURL)
@@ -151,6 +160,7 @@ func downloadAndExtractManifest(url string) (string, error) {
 			return "", fmt.Errorf("failed to read build manifest body: %v", err)
 		}
 
+		fmt.Printf("Build manifest fetched successfully, size: %d bytes\n", len(manifestBody))
 		return string(manifestBody), nil
 	} else {
 		// If no build manifest found, return the original HTML content

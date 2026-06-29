@@ -69,6 +69,8 @@ def main():
 def download_and_extract_manifest(url):
     """Download HTML from URL, extract build manifest URL, and return manifest content"""
 
+    print(f"Fetching HTML from URL: {url}")
+
     # Download HTML content
     try:
         response = urllib.request.urlopen(url)
@@ -76,9 +78,11 @@ def download_and_extract_manifest(url):
     except (URLError, HTTPError) as e:
         raise Exception(f"Failed to download HTML from URL '{url}': {e}")
 
+    print(f"HTML fetched successfully, size: {len(html_content)} bytes")
+
     # Extract build manifest URL from HTML using regex
-    # Look for patterns like: <script src="/_next/static/.../build-manifest.json" />
-    build_manifest_pattern = r'<script[^>]*src=["\']([^"\']*build-manifest\.json[^"\']*)["\'][^>]*>'
+    # Look for patterns like: <script src="/_next/static/.../buildManifest.js" />
+    build_manifest_pattern = r'<script[^>]*src=["\']([^"\']*buildManifest\.js[^"\']*)["\'][^>]*>'
 
     try:
         build_manifest_matches = re.findall(build_manifest_pattern, html_content)
@@ -88,16 +92,20 @@ def download_and_extract_manifest(url):
     if build_manifest_matches:
         # Use the first match
         build_manifest_url = build_manifest_matches[0]
+        print(f"Found build manifest URL: {build_manifest_url}")
 
         # Handle relative URLs by prepending the base URL
         if not build_manifest_url.startswith('http'):
             base_url = extract_base_url(url)
             build_manifest_url = base_url + build_manifest_url
+            print(f"Resolved absolute URL: {build_manifest_url}")
 
         # Download build manifest content
         try:
+            print(f"Fetching build manifest from: {build_manifest_url}")
             manifest_response = urllib.request.urlopen(build_manifest_url)
             manifest_content = manifest_response.read().decode('utf-8')
+            print(f"Build manifest fetched successfully, size: {len(manifest_content)} bytes")
             return manifest_content
         except (URLError, HTTPError) as e:
             raise Exception(f"Failed to download build manifest: {e}")
