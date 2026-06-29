@@ -15,7 +15,11 @@ python3 next.py <file_path_to_your_buildManifest.js>
 
 #### Go Version
 ```bash
+# For local file
 go run next.go <file_path_to_your_buildManifest.js>
+
+# For URL (downloads HTML and extracts build manifest)
+go run next.go -u <url_to_your_nextjs_app>
 ```
 
 ## Features
@@ -24,6 +28,7 @@ go run next.go <file_path_to_your_buildManifest.js>
 - Uses regex pattern matching to find static JS files
 - Handles file reading errors gracefully
 - Command-line interface for easy usage
+- Supports both local files and remote URLs (downloads HTML content)
 
 ## Example Output
 ```
