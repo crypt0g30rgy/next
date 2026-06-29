@@ -43,3 +43,19 @@ static/ghi789.js
 
 - Python 3.x (for Python version)
 - Go 1.16+ (for Go version)
+
+## Installation
+
+To install the tool, you can clone the repository and build it:
+
+```bash
+git clone https://github.com/crypt0g30rgy/next.git
+cd next
+go build -o next next.go
+```
+
+Or if you want to install it globally (note: the module path will be 'next' not 'github.com/crypt0g30rgy/next'):
+
+```bash
+go install next@latest
+```
